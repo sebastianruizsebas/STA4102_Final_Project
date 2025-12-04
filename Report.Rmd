@@ -1,0 +1,264 @@
+---
+title: "Arsenic Levels and Distance to 'Safe' Well: Public Health Factors in Rural Bangladesh"
+subtitle: "STA 4102 / Computational Methods in Statistics 1"
+author: "Aiden Belmont, Sebastian Ruiz, Owen Peronto"
+date: "2025-12-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Introduction
+
+The data set presented in the excerpt and the linked paper is important, as this data is being collected to help the overall health of individuals living in rural Bangladesh. There is an observable problem with the drinking water in this area due to the high levels of arsenic in the tube wells built here. These wells were constructed because the surface water was deemed to have significant levels of microbial contamination, posing a health risk to anybody who chooses to drink it. While the wells were made to supply these people with drinking water, the arsenic levels of some wells also pose a health risk to any individuals who drink from them. This creates the main issues discussed in this paper, as the goal is to supply everyone in rural Bangladesh with the easiest way to access clean drinking water.
+
+The main benefactors who should care about the data we are analyzing are the people living in rural Bangladesh. This data is being collected to help identify those who have issues with acquiring clean drinking water, as their nearest well may be contaminated with arsenic, and there is possibly no other well nearby. Everyone deserves to have clean drinking water as close as possible, so by collecting this data, we will be able to help find areas with the largest difficulty and help them. The most significant benefit of analyzing this data is providing these people in rural Bangladesh with drinking water free of high levels of microbial contamination or arsenic.
+
+This data was collected to identify how significant the issue of acquiring clean drinking water is for individuals in rural Bangladesh. While not all of the wells are dealing with significant levels of arsenic being present, some individuals have a considerable distance between them and the nearest well with clean drinking water. Through the collection of this data, we can pinpoint the areas with the largest need and work to provide them with new sources of drinking water. We do not want to leave anybody having to travel a significant distance only to acquire clean drinking water, or worse, force them to continue drinking water that will cause major health issues. There is a critical issue taking place in rural Bangladesh, and by collecting this data, we can work towards providing a solution.
+
+The data is gathered from a set of arsenic levels measured in 2000 (in micrograms per liter) from 4,827 wells within Araihazar Upazila. The original data included information about each well such as the depth of the well, the year it was installed, and the number of persons who were using it for drinking water. However, in our analyses, we will use a derivative of the original data which will include information about 3,020 wells such as: 1) whether each household switches to a different well after being educated on the risks of the arsenic levels at their current well, 2) the specific arsenic level of the household's well in hundreds of grams per microliter, 3) the distance (in meters) to the nearest known safe well, 4) whether a member of the household is associated with any local community organizations, and 5) number of years of education, of the most educated member of the household.
+
+The response variable is "switch." We are attempting to determine the effects of well-switching and how it can most effectively be used. The predictor variables are "arsenic," "dist," "assoc," and "educ." These predictors determine the effects of well-switching and whether an individual should do so.
+
+The primary question we intend to answer is "What causes people to decide to stay or switch?" We can also look at other more specific questions, like "What arsenic levels are people willing to endure before they decide to switch?" and "How important is education in influencing people to switch to safe wells?". By answering these questions, we may be able to garner insight into how to more effectively construct safe wells and encourage people to use them to promote the health of rural communities in Bangladesh.
+
+## Exploratory Analysis
+```{r}
+# Load and transform the data
+wells <- read.table(file=url("https://michaeljauch.github.io/STA4102Data/wells.txt"), sep=" ", header=TRUE)
+n <- nrow(wells)
+y <- wells[,c("switch")]
+ones <- rep(1, n)
+Z <- as.matrix(cbind(ones, wells[, c("arsenic", "dist", "assoc","educ")]))
+# Inspect the data structure
+summary(wells)
+str(wells)
+head(wells)
+
+# Check response variable
+table(y)
+prop.table(table(y))
+```
+
+This readout reveals interesting details about several of the variables. Firstly, the response variable switch has a median of 1, indicating that more people are switching as a result of the program than those who are not. Additionally, the association variable seems to contain a lot of 0 values, as shown by the minimum, 1st quartile, and median all being 0. Finally, we can observe that all of the wells which the surveyed residents currently drink at are deemed “unsafe” even by the Bangladesh safety standard of 0.5 (hundreds of grams/microliter). This points to a significant public health risk among rural Bangladesh residents, but also an opportunity for intervention.
+```{r}
+hist(wells$arsenic,
+     main = "Histogram of Arsenic Levels",
+     xlab = "Arsenic",
+     ylab = "Frequency")
+
+
+hist(wells$educ,
+     main = "Histogram of Education Levels",
+     xlab = "Education Level",
+     ylab = "Frequency")
+
+
+hist(wells$dist,
+     main = "Histogram of Distance to Safe Well",
+     xlab = "Distance",
+     ylab = "Frequency")
+
+```
+
+
+The distance plot has an expected smooth gradient, as most wells will be placed in population centers with many people around them, so we expect more observations around 0 distance. The education level plot reveals a strongly bimodal distribution, where many observations are clustered at 0 and 4. The arsenic distribution plot yet again reveals that the vast majority, if not all of the families being observed are using unsafe wells.
+
+## Model Fitting
+
+To evaluate the parameters, we will use Newton's method to find maximum likelihood estimates. The following code evaluates the likelihood function, as well as its first and second derivatives to set up for Newton's method. Next we implement the main loop that calculates the parameter estimates, put them into a vector, and compare them with GLM to ensure our method works.
+
+```{r}
+x <- c(0, 0, 0, 0, 0)
+itr <- 20
+x.values <- matrix(0, itr+1, 5)
+x.values[1,] <- x
+## OBJECTIVE FUNCTION AND DERIVATIVES
+g <- function(beta, y, Z){
+  n <- length(y)
+  ones <- rep(1, n)
+  b <- rep(0, n)
+  for(i in 1:n){
+    b[i] <- log(1 + exp(Z[i,] %*% beta))
+  }
+  return(y %*% Z %*% beta - b %*% ones)
+}
+g.prime <- function(beta, y, Z){
+  n <- length(y)
+  pi_vec <- rep(0, n)
+  for(i in 1:n){
+    pi_vec[i] <- 1/(1 + exp(-Z[i,] %*% beta))
+  }
+  return(t(Z) %*% (y - pi_vec))
+}
+g.2prime <- function(beta, y, Z){
+  n <- length(y)
+  pi_vec <- rep(0, n)
+  w <- rep(0, n)
+  for(i in 1:n){
+    pi_vec[i] <- 1/(1 + exp(-Z[i,] %*% beta))
+    w[i] <- pi_vec[i]*(1-pi_vec[i])
+  }
+  return(-t(Z) %*% diag(w) %*% Z)
+}
+## MAIN NEWTON'S METHOD LOOP
+for(i in 1:itr){
+  x <- x - solve(g.2prime(x, y, Z)) %*% g.prime(x, y, Z)
+  x.values[i+1,] <- x
+}
+# Display final coefficients
+beta_hat <- x
+names(beta_hat) <- c("Intercept", "arsenic", "dist", "assoc", "educ")
+print("Final coefficient estimates:")
+print(beta_hat)
+# Compare with glm results
+model_glm <- glm(y ~ Z[,-1], family = binomial(link = "logit"))
+print("Comparison with glm:")
+print(cbind(Newton = beta_hat, GLM = coef(model_glm)))
+# Visualize coefficient convergence
+par(mfrow = c(2, 3))
+for(j in 1:5){
+  plot(0:itr, x.values[,j], type = "b",
+       xlab = "Iteration", ylab = "Coefficient Value",
+       main = paste("Convergence:", c("Intercept", "arsenic", "dist", "assoc", "educ")[j]))
+  abline(h = beta_hat[j], col = "red", lty = 2)
+}
+par(mfrow = c(1, 1))
+
+```
+
+We can observe that Newton’s method has converged in two ways. Firstly, the fact that our coefficient estimates are so close to the GLM estimates proves that they are likely correct. Secondly, looking at the convergence plots, we can see that after approximately 3-5 iterations, all of the parameters have stabilized to a value, as indicated by the horizontal line.
+
+
+## Interpretation
+
+```{r}
+# Visualize the relationship between predictors and switch outcome
+par(mfrow = c(2, 3))
+
+
+# Arsenic vs switch
+boxplot(wells$arsenic ~ y,
+        xlab = "Switch", ylab = "Arsenic Level",
+        main = "Arsenic by Switch Status",
+        col = c("lightblue", "lightcoral"))
+
+
+# Distance vs switch
+boxplot(wells$dist ~ y,
+        xlab = "Switch", ylab = "Distance to Safe Well",
+        main = "Distance by Switch Status",
+        col = c("lightblue", "lightcoral"))
+
+
+# Empty plot for legend
+plot.new()
+legend("center", legend = c("No Switch", "Switch"),
+       fill = c("lightblue", "lightcoral"),
+       title = "Legend", cex = 1.2, bty = "n")
+
+
+# Association vs switch
+barplot(table(y, wells$assoc),
+        beside = TRUE,
+        xlab = "Community Association", ylab = "Count",
+        main = "Switch by Association Status",
+        col = c("lightblue", "lightcoral"))
+
+
+# Education vs switch
+boxplot(wells$educ ~ y,
+        xlab = "Switch", ylab = "Education Level",
+        main = "Education by Switch Status",
+        col = c("lightblue", "lightcoral"))
+
+
+par(mfrow = c(1, 1))
+
+```
+
+These plots reveal a couple of interesting things. First, in the top two plots we see an expected result by observing the distributions of arsenic levels, and distance to the nearest safe well, corresponding to a switch or no-switch. We see that out of those that switched to the nearest safe drinking well, the distributions of arsenic levels were skewed higher, and the distance to the nearest well was skewed lower. These results are expected: if the distance to the nearest safe well is lower, or if the arsenic levels of the current well are higher, there will be more motivation to switch. One unexpected result is shown in the “Education by Switch Status” plot. We can see that the distributions of both of these are roughly identical, and a higher education level does not seem to heavily affect the willingness to move, as one might expect. Furthermore, in the “Switch by Association Status,” we can see that being in close association with the community decreases the proportion of families that switch. Perhaps people in close relationships with their family, friends, and neighbors may be hesitant to switch to another well, as it may cause them to be further away from those they care about. Perhaps there is a cultural element to it, for example those with deep ties centered around their current well may feel a sense of responsibility for their community’s well, or otherwise may feel some other sense of belonging tied tied to their current well, and hence may feel less willing to switch. 
+
+```{r}
+# Predicted probabilities vs predictors using Newton's method coefficients
+par(mfrow = c(2, 2))
+
+
+# Arsenic effect
+arsenic_seq <- seq(min(wells$arsenic), max(wells$arsenic), length.out = 100)
+Z_arsenic <- cbind(1, arsenic_seq, mean(wells$dist), 0, mean(wells$educ))
+pred_arsenic <- 1/(1 + exp(-Z_arsenic %*% beta_hat))
+plot(arsenic_seq, pred_arsenic, type = "l", lwd = 2, col = "blue",
+     xlab = "Arsenic Level", ylab = "P(Switch)",
+     main = "Predicted Probability vs Arsenic")
+
+
+# Distance effect
+dist_seq <- seq(min(wells$dist), max(wells$dist), length.out = 100)
+Z_dist <- cbind(1, mean(wells$arsenic), dist_seq, 0, mean(wells$educ))
+pred_dist <- 1/(1 + exp(-Z_dist %*% beta_hat))
+plot(dist_seq, pred_dist, type = "l", lwd = 2, col = "red",
+     xlab = "Distance to Safe Well", ylab = "P(Switch)",
+     main = "Predicted Probability vs Distance")
+
+
+# Association effect
+Z_assoc <- rbind(c(1, mean(wells$arsenic), mean(wells$dist), 0, mean(wells$educ)),
+                 c(1, mean(wells$arsenic), mean(wells$dist), 1, mean(wells$educ)))
+pred_assoc <- 1/(1 + exp(-Z_assoc %*% beta_hat))
+barplot(as.vector(pred_assoc), names.arg = c("No Assoc", "Assoc"),
+        col = c("lightblue", "lightcoral"),
+        ylab = "P(Switch)", ylim = c(0, 1),
+        main = "Predicted Probability by Association")
+
+
+# Education effect
+educ_seq <- seq(min(wells$educ), max(wells$educ), length.out = 100)
+Z_educ <- cbind(1, mean(wells$arsenic), mean(wells$dist), 0, educ_seq)
+pred_educ <- 1/(1 + exp(-Z_educ %*% beta_hat))
+plot(educ_seq, pred_educ, type = "l", lwd = 2, col = "darkgreen",
+     xlab = "Education Level", ylab = "P(Switch)",
+     main = "Predicted Probability vs Education")
+
+
+par(mfrow = c(1, 1))
+
+```
+
+These plots help us effectively answer some of the questions we posed in the introduction. The “Predicted Probability vs Arsenic” graph shows that the curve flattens softly as the arsenic level increases. At even the lowest recorded levels, the majority of families are still encouraged to switch, which is good, but what about the latter half? It appears that arsenic levels can reach even extremely high levels, 6, and still 20% of families will not switch. It is clear that there are other factors preventing the willingness to switch, even at high arsenic levels. This can be shown in the “Predicted Probability vs Distance” graph. At just a 200-meter distance, the probability of switching is cut all the way down to 25%. It appears that as distance increases, the probability of a family switching to a safer well decreases rapidly. The last two plots confirm what we discussed above. Being in high association with your community very slightly decreases the probability of switching. Finally, looking at the “Predicted Probability vs Education” plot, we can see that while there is certainly a positive and linear relationship, the median subjects (approximately at 5) only cover a 0.05% probability increase. The education level is certainly important, but considering that a 5-point education level increase is associated with such a small proportional increase in the probability of well-switching, it may not be incredibly pertinent to look deeply into this predictor as a solution. Arsenic levels and well distance appear to have a much greater proportional effect on the well-switching probability.
+
+```{r}
+# Scatter plot with jittered switch outcomes
+par(mfrow = c(1, 2))
+
+
+plot(wells$arsenic, jitter(y, amount = 0.05),
+     xlab = "Arsenic Level", ylab = "Switch (jittered)",
+     main = "Switch vs Arsenic",
+     pch = 16, col = rgb(0, 0, 1, 0.3))
+lines(arsenic_seq, pred_arsenic, col = "red", lwd = 2)
+
+
+plot(wells$dist, jitter(y, amount = 0.05),
+     xlab = "Distance to Safe Well", ylab = "Switch (jittered)",
+     main = "Switch vs Distance",
+     pch = 16, col = rgb(0, 0, 1, 0.3))
+lines(dist_seq, pred_dist, col = "red", lwd = 2)
+
+
+par(mfrow = c(1, 1))
+```
+
+We decided to take a closer look at our two predictors with the highest weight on the resulting probability. A majority of the data in both displays is clustered to the lower values of the predictor. However, some data points stray further away from the minimum, pulling the line up or down. Given that almost all except 3 families switch at arsenic levels above 6, the line is strongly pulled upward. Additionally, at 300+ meters from a safe well, 3 families choose not to switch as opposed to only 1 that does, this results in the line being pulled down, although in a slightly softer manner.
+
+## Conclusion
+
+It is clear that while there are many factors that affect well-switching motivation, two predictors appear to stand on top. The best predictors of whether a family will switch wells or not are the arsenic levels in the home well, and the distance to the nearest safe well. Both of these factors appear to have a quite substantial effect on our predicted probability, and therefore looking at these predictors closely may help us determine next steps.
+
+As we’ve shown that arsenic levels in a well have a high positive weight on the predicted probability, and that distance to a safe well has a high negative weight on the predicted probability, some solutions can be drawn. Firstly, if knowing that their well has high arsenic levels motivates families to move, it could be pertinent to offer cheap and regular well testing to individual families, so they can know whether their well is safe or not. Secondly, clearly the distance of safe wells has led to some families being discouraged to switch, the clear solution to this is to build more safe wells in effective places to ensure most if not all families have a well within a certain maximum distance. While this action likely requires well-sharing, it is an easy way to ensure fairness in distance.
+	Some other predictors like personal economic stability may also influence whether people are willing to relocate for a safer well. If we could analyse the financial situations of the subjects, we may see that a poor financial situation could negatively influence the probability of switching. 
+	The restricted location can limit our analysis by preventing wider extrapolation. If we could get more data of other areas experiencing similar hardships, our analysis could be more widely applied. Additionally, as discussed above, our model could possibly be more informative if we incorporate more variables, such as ones looking into economic integrity, family size, or average household age.
+	Keeping a close eye on future data and implementing effective solutions can lead to a healthier world for everyone. We can apply what we learned here to begin accomplishing that, and set the ball rolling for improvement for rural Bangladesh residents.

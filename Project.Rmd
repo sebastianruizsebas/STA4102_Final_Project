@@ -1,0 +1,189 @@
+```{r}
+# Load and transform the data
+wells <- read.table(file=url("https://michaeljauch.github.io/STA4102Data/wells.txt"), sep=" ", header=TRUE)
+n <- nrow(wells)
+y <- wells[,c("switch")]
+ones <- rep(1, n)
+Z <- as.matrix(cbind(ones, wells[, c("arsenic", "dist", "assoc","educ")]))
+```
+
+```{r}
+# Inspect the data structure
+summary(wells)
+str(wells)
+head(wells)
+
+# Check response variable
+table(y)
+prop.table(table(y))
+```
+
+```{r}
+#########################################################################
+### NEWTON'S METHOD (LOGISTIC REGRESSION)
+#########################################################################
+
+## INITIAL VALUES
+x <- c(0, 0, 0, 0, 0)
+itr <- 20
+x.values <- matrix(0, itr+1, 5)
+x.values[1,] <- x
+
+## OBJECTIVE FUNCTION AND DERIVATIVES
+g <- function(beta, y, Z){
+  n <- length(y)
+  ones <- rep(1, n)
+  b <- rep(0, n)
+  for(i in 1:n){
+    b[i] <- log(1 + exp(Z[i,] %*% beta))
+  }
+  return(y %*% Z %*% beta - b %*% ones)
+}
+
+g.prime <- function(beta, y, Z){
+  n <- length(y)
+  pi_vec <- rep(0, n)
+  for(i in 1:n){
+    pi_vec[i] <- 1/(1 + exp(-Z[i,] %*% beta))
+  }
+  return(t(Z) %*% (y - pi_vec))
+}
+
+g.2prime <- function(beta, y, Z){
+  n <- length(y)
+  pi_vec <- rep(0, n)
+  w <- rep(0, n)
+  for(i in 1:n){
+    pi_vec[i] <- 1/(1 + exp(-Z[i,] %*% beta))
+    w[i] <- pi_vec[i]*(1-pi_vec[i])
+  }
+  return(-t(Z) %*% diag(w) %*% Z)
+}
+
+## MAIN NEWTON'S METHOD LOOP
+for(i in 1:itr){
+  x <- x - solve(g.2prime(x, y, Z)) %*% g.prime(x, y, Z)
+  x.values[i+1,] <- x
+}
+
+# Display final coefficients
+beta_hat <- x
+names(beta_hat) <- c("Intercept", "arsenic", "dist", "assoc", "educ")
+print("Final coefficient estimates:")
+print(beta_hat)
+
+# Compare with glm results
+model_glm <- glm(y ~ Z[,-1], family = binomial(link = "logit"))
+print("Comparison with glm:")
+print(cbind(Newton = beta_hat, GLM = coef(model_glm)))
+```
+
+```{r}
+# Visualize coefficient convergence
+par(mfrow = c(2, 3))
+for(j in 1:5){
+  plot(0:itr, x.values[,j], type = "b", 
+       xlab = "Iteration", ylab = "Coefficient Value",
+       main = paste("Convergence:", c("Intercept", "arsenic", "dist", "assoc", "educ")[j]))
+  abline(h = beta_hat[j], col = "red", lty = 2)
+}
+par(mfrow = c(1, 1))
+```
+
+```{r}
+# Visualize the relationship between predictors and switch outcome
+par(mfrow = c(2, 3))
+
+# Arsenic vs switch
+boxplot(wells$arsenic ~ y,
+        xlab = "Switch", ylab = "Arsenic Level",
+        main = "Arsenic by Switch Status",
+        col = c("lightblue", "lightcoral"))
+
+# Distance vs switch
+boxplot(wells$dist ~ y,
+        xlab = "Switch", ylab = "Distance to Safe Well",
+        main = "Distance by Switch Status",
+        col = c("lightblue", "lightcoral"))
+
+# Empty plot for legend
+plot.new()
+legend("center", legend = c("No Switch", "Switch"),
+       fill = c("lightblue", "lightcoral"),
+       title = "Legend", cex = 1.2, bty = "n")
+
+# Association vs switch
+barplot(table(y, wells$assoc),
+        beside = TRUE,
+        xlab = "Community Association", ylab = "Count",
+        main = "Switch by Association Status",
+        col = c("lightblue", "lightcoral"))
+
+# Education vs switch
+boxplot(wells$educ ~ y,
+        xlab = "Switch", ylab = "Education Level",
+        main = "Education by Switch Status",
+        col = c("lightblue", "lightcoral"))
+
+par(mfrow = c(1, 1))
+```
+
+```{r}
+# Predicted probabilities vs predictors using Newton's method coefficients
+par(mfrow = c(2, 2))
+
+# Arsenic effect
+arsenic_seq <- seq(min(wells$arsenic), max(wells$arsenic), length.out = 100)
+Z_arsenic <- cbind(1, arsenic_seq, mean(wells$dist), 0, mean(wells$educ))
+pred_arsenic <- 1/(1 + exp(-Z_arsenic %*% beta_hat))
+plot(arsenic_seq, pred_arsenic, type = "l", lwd = 2, col = "blue",
+     xlab = "Arsenic Level", ylab = "P(Switch)",
+     main = "Predicted Probability vs Arsenic")
+
+# Distance effect
+dist_seq <- seq(min(wells$dist), max(wells$dist), length.out = 100)
+Z_dist <- cbind(1, mean(wells$arsenic), dist_seq, 0, mean(wells$educ))
+pred_dist <- 1/(1 + exp(-Z_dist %*% beta_hat))
+plot(dist_seq, pred_dist, type = "l", lwd = 2, col = "red",
+     xlab = "Distance to Safe Well", ylab = "P(Switch)",
+     main = "Predicted Probability vs Distance")
+
+# Association effect
+Z_assoc <- rbind(c(1, mean(wells$arsenic), mean(wells$dist), 0, mean(wells$educ)),
+                 c(1, mean(wells$arsenic), mean(wells$dist), 1, mean(wells$educ)))
+pred_assoc <- 1/(1 + exp(-Z_assoc %*% beta_hat))
+barplot(as.vector(pred_assoc), names.arg = c("No Assoc", "Assoc"),
+        col = c("lightblue", "lightcoral"),
+        ylab = "P(Switch)", ylim = c(0, 1),
+        main = "Predicted Probability by Association")
+
+# Education effect
+educ_seq <- seq(min(wells$educ), max(wells$educ), length.out = 100)
+Z_educ <- cbind(1, mean(wells$arsenic), mean(wells$dist), 0, educ_seq)
+pred_educ <- 1/(1 + exp(-Z_educ %*% beta_hat))
+plot(educ_seq, pred_educ, type = "l", lwd = 2, col = "darkgreen",
+     xlab = "Education Level", ylab = "P(Switch)",
+     main = "Predicted Probability vs Education")
+
+par(mfrow = c(1, 1))
+```
+
+```{r}
+# Scatter plot with jittered switch outcomes
+par(mfrow = c(1, 2))
+
+plot(wells$arsenic, jitter(y, amount = 0.05),
+     xlab = "Arsenic Level", ylab = "Switch (jittered)",
+     main = "Switch vs Arsenic",
+     pch = 16, col = rgb(0, 0, 1, 0.3))
+lines(arsenic_seq, pred_arsenic, col = "red", lwd = 2)
+
+plot(wells$dist, jitter(y, amount = 0.05),
+     xlab = "Distance to Safe Well", ylab = "Switch (jittered)",
+     main = "Switch vs Distance",
+     pch = 16, col = rgb(0, 0, 1, 0.3))
+lines(dist_seq, pred_dist, col = "red", lwd = 2)
+
+par(mfrow = c(1, 1))
+```
+

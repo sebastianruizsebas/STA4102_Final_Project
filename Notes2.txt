@@ -1,0 +1,1027 @@
+Optimization and Solving Nonlinear Equations
+Michael Jauch
+10/2/2022
+Multivariate Optimization / Root Finding
+Thus far, we’ve only learned optimization and root finding methods suitable for one-dimensional functions. In the context of maximum likelihood estimation, this means we are limited to working with distributions which have a single unknown parameter (the normal distribution with known variance, the poisson distribution, etc.). This is very limiting!
+
+Our next topic is optimization and root finding methods suitable for multivariate problems. We will focus on Newton’s method, which can be straightforwardly extended to higher dimensions. Before we start, we need to review some concepts from multivariable calculus.
+
+Functions of More than One Variable
+Multivariable calculus is concerned with functions of more than one variable. Because our main application for optimization and root finding methods is maximum likelihood estimation, we will focus on functions g:Rp→R.
+ This notation means that the function g
+ takes as input a p
+-dimensional vector of real numbers and outputs a real number. In this course, g
+ will usually be the log likelihood function of a statistical model with p
+ parameters.
+
+Example (A Simple Function of Two Variables):
+
+We first give a simple example of a function g:R2→R
+ which is not a log likelihood function. The function g,
+ which takes as input a vector x=(x1,x2)⊤,
+ is defined as g(x)=−(x21+x22).
+ It should not be too hard to convince ourselves that g(x)
+ has a global maximum point at x∗=(0,0)⊤.
+
+The Gradient Vector
+Previously in these notes, we discussed optimization concepts from single-variable calculus. In particular, we mentioned that maximum/minimum points occur at stationary points for which g′(x)=0
+ (unless they occur at rough points or end points). In this brief recap, g(x)
+ should be understood as a function of a single variable and g′(x)
+ should be understood as the usual derivative.
+
+There is an analogous condition that allows us to find stationary points, and thus maximum/minimum points, of functions of more than one variable. Before we state that condition, we need to introduce the concept of the gradient.
+
+The gradient of a function g(x)
+ where x=(x1,…,xp)⊤
+ is the function g′(x)=[∂∂x1g(x),…,∂∂xpg(x)]⊤.
+ A few comments:
+
+The gradient g′(x)
+ takes as input a p
+-dimensional vector and returns as output a p
+-dimensional vector.
+The gradient g′(x)
+ is often denoted ∇g(x).
+The notation ∂∂xig(x)
+ indicates the partial derivative. The notation is new, but you can view this as the usual derivative of g(x)
+ with respect to xi,
+ treating all the other variables as constants.
+Now that we’ve introduced the concept of the gradient, we can state the condition that allows us to find stationary points for functions of more than one variable. A point x=(x1,…,xp)⊤
+ is a stationary point of the function g(x)
+ if the gradient g′(x)=0.
+ The condition is exactly the same as in the single variable case, except that now g′(x)
+ denotes the gradient of g(x)
+ rather than the usual derivative and 0
+ should be understood as a p−
+dimensional vector of zeros. We can write the condition equivalently using vector notation:
+g′(x)=0⟺⎡⎣⎢⎢⎢⎢∂∂x1g(x)⋮∂∂xpg(x)⎤⎦⎥⎥⎥⎥=⎡⎣⎢⎢0⋮0⎤⎦⎥⎥.
+The symbol ⟺
+ means “is equivalent to.”
+
+Example (Returning to our Simple Function of Two Variables):
+
+Let’s calculate the gradient of the function g(x)=−(x21+x22)
+ and use the condition above to verify that x∗=(0,0)⊤
+ is the maximum point. We have
+∂∂x1g(x)∂∂x2g(x)=−2x1=−2x2
+and thus
+g′(x)=[−2x1−2x2]=−2[x1x2]⟹g′(x)=−2x.
+As we should expect, x∗=(0,0)⊤,
+ is a (unique) solution to the equation g′(x)=−2x=0.
+
+The Hessian Matrix
+Another important concept we need to introduce is the Hessian. We saw that the gradient in multivariable calculus plays a similar role to the first derivative from single variable calculus. We’ll soon discover that the Hessian in multivariable calculus plays a similar role to the second derivative from single variable calculus. It shouldn’t be surprising then that it appears in the updating equation of Newton’s method for functions of multiple variables.
+
+The Hessian of a function g(x)
+ where x=(x1,…,xp)⊤
+ is the matrix-valued function
+g′′(x)=⎡⎣⎢⎢⎢⎢⎢⎢⎢⎢⎢⎢∂2g(x)∂x21∂2g(x)∂x2∂x1⋮∂2g(x)∂xp∂x1∂2g(x)∂x1∂x2∂2g(x)∂x22⋮∂2g(x)∂xp∂x2……⋱…∂2g(x)∂x1∂xp∂2g(x)∂x2∂xp⋮∂2g(x)∂xp∂xp⎤⎦⎥⎥⎥⎥⎥⎥⎥⎥⎥⎥
+.
+
+A few comments:
+
+The Hessian g′′(x)
+ takes as input a p
+-dimensional vector and returns as output a p×p
+ matrix.
+The notation ∂2g(x)∂xi∂xj
+ indicates a second-order partial derivative which can be calculated by first taking the partial derivative of g(x)
+ with respect to xj
+ and then taking the partial derivative of the result with respect to xi.
+ When i=j,
+ the second-order partial derivative is denoted as ∂2g(x)∂x2i
+ or, equivalently, ∂2g(x)∂x2j.
+If the second partial derivatives are continuous (as they will be in the examples we consider), the Hessian matrix will be symmetric with ∂2g(x)∂xi∂xj=∂2g(x)∂xj∂xi.
+Example (Returning Again to our Simple Function of Two Variables):
+
+Let’s calculate the Hessian of the function g(x)=−(x21+x22).
+ Since the Hessian matrix is symmetric, we only need to calculate ∂2g(x)∂x21,∂2g(x)∂x1∂x2
+ and ∂2g(x)∂x22.
+ We have that
+∂2g(x)∂x21=−2,∂2g(x)∂x1∂x2=0,and∂2g(x)∂x22=−2
+so that
+g′′(x)=[−200−2].
+
+Taylor Approximation of a Multivariable Function
+The final concept we need to introduce before we get to Newton’s method is the Taylor approximation of a multivariable function. The second order Taylor approximation of g(x)
+ at x0
+ can be written as
+gx0,2(x)=g(x0)+g′(x0)⊤(x−x0)+(x−x0)⊤g′′(x0)2!(x−x0).
+This time, g′(x0)
+ and g′′(x0)
+ denote the gradient and Hessian, respectively.
+
+To derive the updating equation for Newton’s method, we first write down the second order Taylor approximation of g(x)
+ at x(t):
+gx(t),2(x)=g(x(t))+g′(x(t))⊤(x−x(t))+(x−x(t))⊤g′′(x(t))2!(x−x(t)).
+Our goal is to find the maximum point of this Taylor approximation and let that be our next guess x(t+1).
+ To do so, we need to calculate the gradient of the Taylor approximation and set that equal to zero. Omitting the details of the derivation, the gradient of the Taylor approximation is
+g′x(t),2(x)=g′(x(t))+g′′(x(t))(x−x(t)).
+The maximum point of Taylor approximation, which we will denote by x(t+1),
+ must satisfy the equation
+⟹⟹g′x(t),2(x(t+1))=0g′(x(t))+g′′(x(t))(x(t+1)−x(t))=0x(t+1)=x(t)−g′′(x(t))−1g′(x(t))
+where the notation g′′(x(t))−1
+ represents the matrix inverse of the Hessian g′′(x(t)).
+ This is the updating equation of Newton’s Method for functions of multiple variables.
+
+The Algorithm:
+
+Let x(0)
+ be our starting vector. For t=0,1,2,…,
+ we update as follows:
+x(t+1)=x(t)−g′′(x(t))−1g′(x(t)).
+
+Example (Implementation of Newton’s Method in R
+):
+
+The code below provides an R implementation of Newton’s method that finds the maximum of g(x)=−(x21+x22).
+ To better understand how to work with matrices in R,
+ revisit the R
+ tutorial linked on Canvas.
+
+#########################################################################
+### NEWTON'S METHOD (SIMPLE FUNCTION)
+#########################################################################
+
+#########################################################################
+# x = initial value
+# itr = number of iterations to run
+# x.values = contains values of x for each iteration
+# g = objective function
+# g.prime = first derivative of objective function
+# g.2prime = second derivative of objective function
+#########################################################################
+
+#########################################################################
+
+## INITIAL VALUES
+x = c(-2,-2)
+itr = 5
+x.values = matrix(0,itr+1,2)
+x.values[1,] = x
+
+## OBJECTIVE FUNCTION AND DERIVATIVES
+g = function(x){
+  return(-(x[1]^2 + x[2]^2))
+}
+
+g.prime = function(x){
+    return(-2*x)
+}
+
+g.2prime=function(x){
+    return(-2*diag(2))
+}
+
+## MAIN
+for(i in 1:itr){
+      x = x - solve(g.2prime(x))%*%g.prime(x)
+      x.values[i+1,] = x
+}
+
+## OUTPUT
+x       # FINAL ESTIMATE
+##      [,1]
+## [1,]    0
+## [2,]    0
+g(x)        # OBJECTIVE FUNCTION AT ESTIMATE
+## [1] 0
+g.prime(x)  # GRADIENT AT ESTIMATE
+##      [,1]
+## [1,]    0
+## [2,]    0
+x.values # THE SEQUENCE OF X VALUES
+##      [,1] [,2]
+## [1,]   -2   -2
+## [2,]    0    0
+## [3,]    0    0
+## [4,]    0    0
+## [5,]    0    0
+## [6,]    0    0
+We can see from the sequence of x
+ values that Newton’s method finds the maximum point in a single iteration. Our function is quadratic and thus equal to its second order Taylor approximation. Therefore, we find the maximum point analytically with a single Newton iteration.
+
+Example (Newton’s Method to Find the MLE of a Normal Mean AND Variance):
+
+We now have the tools to consider maximum likelihood estimation for statistical models with multiple parameters. We return to the normal example, but this time we won’t assume the variance σ2
+ is known. The log likelihood function, which we wrote down in a previous example from these notes, should now be viewed as a function of the parameter vector (μ,σ2)⊤:
+l(μ,σ2)=∑i=1nlogf(Yi∣μ,σ2)=∑i=1n[−12log(2πσ2)−12(Yi−μσ)2]=−n2log(2πσ2)−12∑i=1n(Yi−μσ)2=−n2log(2π)−n2log(σ2)−12σ2∑i=1n(Yi−μ)2.
+The gradient vector is
+l′(μ,σ2)=[1σ2∑ni=1(Yi−μ)−n2σ2+12σ4∑ni=1(Yi−μ)2].
+The Hessian matrix is
+l′′(μ,σ2)=[−nσ2−1σ4∑ni=1(Yi−μ)−1σ4∑ni=1(Yi−μ)n2σ4−1σ6∑ni=1(Yi−μ)2].
+
+# Choose true values of mu_true and sigma_true and the sample size n that will be used to simulate data 
+# from a normal distribution 
+mu_true <- 1; sigma2_true <- 3; n <- 20
+
+# Simulate the data 
+y <- rnorm(n=n, mean=mu_true, sd=sqrt(sigma2_true))
+
+# Define a function which evaluates the log likelihood. 
+# This code is from the previous example in which we plotted the log likelihood. 
+log_likelihood <- function(mu, sigma2, y){
+  n <- length(y)
+  sum <- 0
+  for(i in 1:n){
+    sum <- sum + dnorm(y[i], mean=mu, sd=sqrt(sigma2), log=TRUE)
+  }
+  return(sum)
+} 
+
+#########################################################################
+### NEWTON'S METHOD (NORMAL DISTRIBUTION)
+#########################################################################
+
+#########################################################################
+# x = initial value
+# itr = number of iterations to run
+# x.values = contains values of x for each iteration
+# g = objective function
+# g.prime = first derivative of objective function
+# g.2prime = second derivative of objective function
+#########################################################################
+
+#########################################################################
+
+## INITIAL VALUES
+x = c(2,2)
+itr = 10
+x.values = matrix(0,itr+1,2)
+x.values[1,] = x
+
+## OBJECTIVE FUNCTION AND DERIVATIVES
+g = log_likelihood
+
+g.prime = function(mu, sigma2, y){
+  n = length(y)
+    top =  sum(y-mu)/sigma2
+    bottom = -n/(2*sigma2) + sum((y-mu)^2)/(2*sigma2^2)
+    output = matrix(c(top, bottom), ncol=1)
+    return(output)
+}
+
+g.2prime=function(mu, sigma2, y){
+  n = length(y)
+  topleft = -n/sigma2
+  topright = -sum(y-mu)/sigma2^2
+  bottomleft = topright
+  bottomright = n/(2*sigma2^2) - sum((y-mu)^2)/sigma2^3
+  output = matrix(c(topleft, bottomleft, topright, bottomright), ncol=2)
+  return(output)
+}
+
+## MAIN
+for(i in 1:itr){
+      x = x - solve(g.2prime(x[1], x[2], y))%*%g.prime(x[1], x[2], y)
+      x.values[i+1,] = x
+}
+
+## OUTPUT
+x   - c(mean(y), mean((y-mean(y))^2))   # FINAL ESTIMATE - MAXIMUM LIKELIHOOD ESTIMATES
+##              [,1]
+## [1,] 1.110223e-16
+## [2,] 8.881784e-16
+x.values # THE SEQUENCE OF X VALUES
+##             [,1]     [,2]
+##  [1,] 2.00000000 2.000000
+##  [2,] 0.02306589 1.348013
+##  [3,] 0.36322925 1.752569
+##  [4,] 0.46771430 2.249733
+##  [5,] 0.50116762 2.680596
+##  [6,] 0.50842746 2.905460
+##  [7,] 0.50908214 2.949490
+##  [8,] 0.50909221 2.950865
+##  [9,] 0.50909222 2.950866
+## [10,] 0.50909222 2.950866
+## [11,] 0.50909222 2.950866
+Further Statistical Examples
+The statistical examples thus far have focused on the normal distribution and the Poisson distribution. There are simple analytical expressions for the MLEs for these two distributions, so there is no real need to apply the bisection method or Newton’s method to do maximum likelihood estimation in those cases. However, it’s helpful to test our implementations of these algorithms in a setting where we know the true MLE for the purpose of comparison.
+
+There are several examples of useful two parameter probability distributions for which there is an analytical expression for the MLE of one parameter, but an univariate iterative optimization algorithm must be applied to find the MLE for the other parameter. See, for example, the discussion of maximum likelihood estimation in the Wikipedia pages for the negative binomial distribution, the Weibull distribution, or the gamma distribution.
+
+We’ll now consider two statistical applications for which a multivariate iterative optimization is essential: maximum likelihood estimation for a logistic regression model and a poisson regression model.
+
+Logistic Regression
+Let’s consider data from a study on breast cancer surgery survival conducted at the University of Chicago’s Billings Hospital from 1958-1970. There were n=306
+ patients in the study. The binary variable Yi
+ indicates whether or not patient i
+ died within five years of surgery (Yi=1
+ if so and Yi=0
+ if not). For each patient, there is a vector of covariates / explanatory variables zi=(zi,1,zi,2,zi,3,zi,4)⊤
+ where
+
+zi,1=1
+ for all patients (this is necessary in order to include an intercept in our logistic regression model)
+zi,2
+ is the age of the patient at the time of the operation
+zi,3
+ is the year of the operation (e.g. if the operation for patient i
+ was in 1965, then zi3=65
+)
+zi,4
+ is the number of axilary lymph nodes in which cancer was detected.
+We’ll model these data using logistic regression, i.e. we assume that
+Yi|ziπi∼Bernoulli(πi)=11+e−z⊤iβ=ez⊤iβ1+ez⊤iβ
+for each i=1,..,n
+ and an unknown parameter vector β=(β1,...,β4)⊤
+ of regression coefficients. A few comments/questions:
+
+The Bernoulli distribution can be thought of like a coin flip where Yi=1
+ with probability πi
+ and Yi=0
+ with probability 1−πi.
+That the probability of dying within five years would depend upon the covariates makes intuitive sense. What relationships would you expect to exist?
+The expression z⊤iβ
+ is reminiscient of linear regression. The reason we can’t just set πi=z⊤iβ
+ is that πi
+ is a probability and therefore πi∈[0,1].
+ Instead, we let πi
+ be equal to a transformation of z⊤iβ
+ that is guaranteed to be between zero and one.
+We can illustrate this last point by plotting the logistic function f(x)=11+e−x
+ :
+
+xgrid <- seq(-5, 5, length.out=1000)
+plot(x=xgrid, y=1/(1+exp(-xgrid)), type="l", xlab="x", ylab="f(x)", lwd=1.5)
+
+
+The likelihood function for the logistic regression model can be written as
+L(β)=∏i=1nπYii(1−πi)1−Yi
+and thus the log likelihood function can be written as
+l(β)=∑i=1nYilog(πi)+(1−Yi)log(1−πi)=∑i=1nYilog(11+e−z⊤iβ)+(1−Yi)log(1−11+e−z⊤iβ)=∑i=1nYilog(11+e−z⊤iβ)+(1−Yi)log(1+e−z⊤iβ−11+e−z⊤iβ)=∑i=1nYilog(11+e−z⊤iβ)+(1−Yi)log(e−z⊤iβ1+e−z⊤iβ)=∑i=1nYi[log(11+e−z⊤iβ)−log(e−z⊤iβ1+e−z⊤iβ)]+log(e−z⊤iβ1+e−z⊤iβ)=∑i=1nYilog(11+e−z⊤iβ⋅1+e−z⊤iβe−z⊤iβ)+log(e−z⊤iβ1+e−z⊤iβ⋅ez⊤iβez⊤iβ)=∑i=1nYilog(1e−z⊤iβ)+log(11+ez⊤iβ)=∑i=1nYilog(1)−Yilog(e−z⊤iβ)+log(1)−log(1+ez⊤iβ)=∑i=1nYi⋅z⊤iβ−log(1+ez⊤iβ)=y⊤Zβ−b⊤1n
+where
+
+y=(Y1,..,Yn)⊤,
+Z
+ is the n×4
+ matrix whose i
+th row is z⊤i,
+b=[log(1+ez⊤1β),...,log(1+ez⊤nβ)]⊤,
+ and
+1n
+ is an n
+-dimensional vector of all ones.
+In order to apply Newton’s method to find the maximum likelihood estimates β^,
+ we’ll need to be able to evaluate gradient and Hessian of the log likelihood. Omitting the details of the derivations, we have that
+l′(β)=Z⊤(y−π)
+where π=(π1,...,πn)⊤
+ and
+l′′(β)=−Z⊤WZ
+where W
+ is a diagonal matrix with its i
+th diagonal entry equal to πi(1−πi).
+ Thus, the updating equation for Newton’s method is
+β(t+1)=β(t)+(Z⊤W(t)Z)−1Z⊤(y−π(t)).
+
+The updating equation of Newton’s method for logistic regresson is the solution of a certain weighted least squares problem. Thus, this algorithm is also referred to as iteratively reweighted least squares (IRLS). IRLS algorithms like this one can be used to find maximum likelihood estimates for any generalized linear model (a class of models which includes logistic regression as one example).
+
+Here is an R
+ implementation:
+
+# Load and transform the data (this involves commands we haven't discussed). The data are available in the "imbalance"
+# package, which you will have to install using the command install.packages("imbalance"). The data are stored in a data frame called haberman that we can work with upon loading the package
+
+library(imbalance)
+n <- nrow(haberman)
+y <- (haberman$Class=="positive")*1
+ones <- rep(1, n)
+Z <- as.matrix(cbind(ones, haberman[, c("Age", "Year", "Positive")]))
+
+#########################################################################
+### NEWTON'S METHOD (LOGISTIC REGRESSION)
+#########################################################################
+
+#########################################################################
+# x = initial value of the regression coefficients
+# itr = number of iterations to run
+# x.values = contains values of x for each iteration
+# g = objective function
+# g.prime = first derivative of objective function
+# g.2prime = second derivative of objective function
+#########################################################################
+
+#########################################################################
+
+## INITIAL VALUES
+x = c(0, 0, 0, 0)
+itr = 10
+x.values = matrix(0,itr+1,4)
+x.values[1,] = x
+
+## OBJECTIVE FUNCTION AND DERIVATIVES
+g = function(beta, y, Z){
+  n <- length(y) # Create a variable n = # of observations
+  ones <- rep(1, n) # Create a length n vector of ones
+  # Create the b vector 
+  b <- rep(0, n) # Initial b as a vector of zeros. 
+  for(i in 1:n){
+    b[i] <- log(1 + exp(Z[i,] %*% beta))
+  }
+  # Calculate and return the log likelihood 
+  return(y %*% Z %*% beta - b %*% ones)
+}
+
+g.prime = function(beta, y, Z){
+  n <- length(y) # Create a variable n = # of observations
+  # Create the pi vector 
+  pi_vec <- rep(0, n) # Initial pi_vec as a vector of zeros. 
+  for(i in 1:n){
+    pi_vec[i] <- 1/(1 + exp(-Z[i,] %*% beta))
+  }
+  # Calculate and return the gradient of the log likelihood 
+  return(t(Z) %*% (y - pi_vec))
+}
+
+g.2prime=function(beta, y, Z){
+  n <- length(y) # Create a variable n = # of observations
+  # Create pi vector and a vector w of the diagonal elements of W
+  pi_vec <- rep(0, n) # Initial pi_vec as a vector of zeros. 
+  w <- rep(0, n) # Initial w as a vector of zeros. 
+  for(i in 1:n){
+    pi_vec[i] <- 1/(1 + exp(-Z[i,] %*% beta))
+    w[i] <- pi_vec[i]*(1-pi_vec[i])
+  }
+  # Calculate and return the Hessian of the log likelihood 
+  return(-t(Z) %*% diag(w) %*% Z)
+}
+
+## MAIN
+for(i in 1:itr){
+  x = x - solve(g.2prime(x, y, Z))%*%g.prime(x, y, Z)
+  x.values[i+1,] = x
+}
+
+## OUTPUT
+x       # FINAL ESTIMATE
+##                 [,1]
+## ones     -1.86162525
+## Age       0.01989935
+## Year     -0.00978386
+## Positive  0.08844244
+g.prime(x, y, Z)    # GRADIENT AT ESTIMATE
+##                   [,1]
+## ones     -5.662137e-15
+## Age      -6.270540e-13
+## Year     -4.662937e-13
+## Positive -4.263256e-14
+x.values # THE SEQUENCE OF X VALUES
+##            [,1]       [,2]         [,3]       [,4]
+##  [1,]  0.000000 0.00000000  0.000000000 0.00000000
+##  [2,] -1.587880 0.01430686 -0.006253933 0.07185013
+##  [3,] -1.845478 0.01939894 -0.009429568 0.08728601
+##  [4,] -1.861555 0.01989648 -0.009781697 0.08843657
+##  [5,] -1.861625 0.01989935 -0.009783860 0.08844244
+##  [6,] -1.861625 0.01989935 -0.009783860 0.08844244
+##  [7,] -1.861625 0.01989935 -0.009783860 0.08844244
+##  [8,] -1.861625 0.01989935 -0.009783860 0.08844244
+##  [9,] -1.861625 0.01989935 -0.009783860 0.08844244
+## [10,] -1.861625 0.01989935 -0.009783860 0.08844244
+## [11,] -1.861625 0.01989935 -0.009783860 0.08844244
+# We can compare these estimates to what we get using the standard R function: 
+
+logreg <- glm(Class ~ Age + Year + Positive, family="binomial", data=haberman)
+logreg$coefficients - x
+##                   [,1]
+## ones      9.658940e-14
+## Age       9.374446e-15
+## Year     -6.206841e-15
+## Positive -1.544598e-14
+Let’s interpret the results. We can understand the relationships between a single explanatory variable zi,j
+ and the probability πi
+ of dying within five years of surgery by fixing the other variables at their median values and plotting πi
+ as a function of zi,j.
+ Let’s do this for zi,4,
+ the number of axilary lymph nodes in which cancer was detected:
+
+zgrid <- seq(0, 55, length.out=1000)
+z2med <- median(Z[,2])
+z3med <- median(Z[,3])
+plot(x=zgrid, y=1/(1 + exp(-1*x[1] - z2med*x[2] - z3med*x[3] - zgrid*x[4])), type="l", ylab="Probability of death within five years", xlab="# of cancerous lymph nodes")
+
+
+Let’s do the same thing for the variable zi,3,
+ the year in which the surgery occured:
+
+zgrid <- seq(58, 70, length.out=1000)
+z2med <- median(Z[,2])
+z4med <- median(Z[,4])
+plot(x=zgrid, y=1/(1 + exp(-1*x[1] - z2med*x[2] - zgrid*x[3] - z4med*x[4])), type="l", ylab="Probability of death within five years", xlab="Year of surgery")
+
+
+Finally, let’s do it for zi,3,
+ the age of the patient when the surgery occured:
+
+zgrid <- seq(30, 85, length.out=1000)
+z3med <- median(Z[,3])
+z4med <- median(Z[,4])
+plot(x=zgrid, y=1/(1 + exp(-1*x[1] - zgrid*x[2] - z3med*x[3] - z4med*x[4])), type="l", ylab="Probability of death within five years", xlab="Age of patient")
+
+
+A Poisson Regression Model
+We now consider data related to crude oil spills in U.S. waters during the period 1974-1999. The count Yi
+ indicates the number of spills in the i
+th year. For each year, there is a vector of covariates / explanatory variables zi=(zi,1,zi,2)⊤
+ where
+
+zi,1
+ is the amount of oil shipped through U.S. waters as part of import/export operation in year i,
+ and
+zi,2
+ is the amount of oil shipped through U.S. waters during domestic shipments in year i.
+The unit of measure for both covariates is billions of barrels. We’ll model the oil spills with a Poisson regression model. In particular, we assume that
+Yiλi∣λi∼Poisson(λi)=β1zi,1+β2zi,2
+for each i=1,..,n
+ and an unknown parameter vector β=(β1,β2)⊤
+ of regression coefficients. A couple comments/questions:
+
+That the number of oil spills in a given year would depend upon the covariates makes intuitive sense. What relationships would you expect to exist?
+We don’t have an intercept term in our model. Why does this make sense?
+Each Poisson parameter λi
+ must be positive so it would make sense to require that β1,β2≥0.
+ In this case, the MLE satisfies that condition anyway.
+The likelihood function for the logistic regression model can be written as
+L(β1,β2)=∏i=1nλYiie−λiYi!
+and thus the log likelihood function can be written as
+l(β1,β2)=∑i=1n[Yilog(λi)−λi−log(Yi!)]=∑i=1nYilog(β1zi,1+β2zi,2)−∑i=1n(β1zi,1+β2zi,2)−∑i=1nlog(Yi!).
+
+In order to apply Newton’s method to find the maximum likelihood estimates β^,
+ we’ll need to be able to evaluate gradient and Hessian of the log likelihood. Omitting the details of the derivations, we have that
+l′(β)=⎡⎣⎢∑ni=1Yizi,1β1zi,1+β2zi,2−∑ni=1zi,1∑ni=1Yizi,2β1zi,1+β2zi,2−∑ni=1zi,2⎤⎦⎥
+and
+l′′(β)=⎡⎣⎢⎢−∑ni=1Yiz2i,1(β1zi,1+β2zi,2)2−∑ni=1Yizi,1zi,2(β1zi,1+β2zi,2)2−∑ni=1Yizi,1zi,2(β1zi,1+β2zi,2)2−∑ni=1Yiz2i,2(β1zi,1+β2zi,2)2⎤⎦⎥⎥.
+
+Here is an R
+ implementation of Newton’s method for this Poisson regression model:
+
+oil_data <- read.csv("https://michaeljauch.github.io/STA4102Data/oilspills.csv", header=TRUE)
+y <- oil_data$spills
+Z <- as.matrix(oil_data[,c("importexport", "domestic")])
+
+#########################################################################
+### NEWTON'S METHOD (A POISSON REGRESSION MODEL)
+#########################################################################
+
+#########################################################################
+# x = initial value of the regression coefficients
+# itr = number of iterations to run
+# x.values = contains values of x for each iteration
+# g = objective function
+# g.prime = first derivative of objective function
+# g.2prime = second derivative of objective function
+#########################################################################
+
+#########################################################################
+
+## INITIAL VALUES
+x = c(.1,.1)
+itr = 10
+x.values = matrix(0,itr+1,2)
+x.values[1,] = x
+
+## FIRST AND SECOND DERIVATIVES OF THE LOG LIKELIHOOD
+
+g <- function(beta, y, Z){
+  n <- length(y)
+  sum <- 0
+  for(i in 1:n){
+    sum <- sum + y[i]*log(beta[1]*Z[i,1] + beta[2]*Z[i,2]) - 
+      (beta[1]*Z[i,1] + beta[2]*Z[i,2]) - lfactorial(y[i])
+  }
+  return(sum)
+}
+
+g.prime <- function(beta, y, Z){
+  n <- length(y)
+  top <- 0 
+  bottom <- 0
+  for(i in 1:n){
+    top <- top + y[i]*Z[i,1]/(Z[i,] %*% beta) - Z[i,1]
+    bottom <- bottom + y[i]*Z[i,2]/(Z[i,] %*% beta) - Z[i,2]
+  }
+  return(c(top, bottom))
+}
+
+g.2prime <- function(beta, y, Z){
+  n <- length(y)
+  topleft <- 0 
+  bottomright <- 0
+  topright <- 0
+  bottomleft <- 0 
+  for(i in 1:n){
+    topleft <- topleft - y[i]*Z[i,1]^2/(Z[i,] %*% beta)^2
+    bottomright <- bottomright - y[i]*Z[i,2]^2/(Z[i,] %*% beta)^2
+    topright <- topright - y[i]*Z[i,1]*Z[i,2]/(Z[i,] %*% beta)^2
+    bottomleft <- topright
+  }
+  return(matrix(c(topleft, bottomleft, topright, bottomright), ncol=2))
+}
+
+## MAIN
+for(i in 1:itr){
+  x = x - solve(g.2prime(x, y, Z)) %*% g.prime(x, y, Z)
+  x.values[i+1,] = x
+}
+
+## OUTPUT
+x       # FINAL ESTIMATE
+##           [,1]
+## [1,] 1.0971525
+## [2,] 0.9375546
+g.prime(x, y, Z)    # GRADIENT AT ESTIMATE
+## [1]  4.440892e-16 -7.771561e-16
+# Compare to the results from the R function glm
+poisreg <- glm(spills ~ -1 + importexport + domestic, 
+               family=poisson(link="identity"), data=oil_data, start=c(.1,1)) 
+poisreg$coefficients
+## importexport     domestic 
+##    1.0971904    0.9374973
+How should we interpret these regression coefficients? Which type of shipping appears to be riskier?
+
+We can plot the path of x0,x(1),x(3),...
+ with the following code:
+
+# M^2 is the number of points at which we evaluate g to create the contour plot
+M <- 50
+
+# Create the grids where we will evaluate g to create the contour plot 
+beta1grid <- seq(.1, 3, length.out=M)
+beta2grid <- seq(.1, 3, length.out=M)
+
+# Evaluate g on our grid and store the values in a matrix 
+gmat <- matrix(0, nrow=M, ncol=M)
+for(i in 1:M){
+  for(j in 1:M){
+    gmat[i,j] <- g(c(beta1grid[i], beta2grid[j]), y, Z)
+  }
+}
+
+# Create the contour plot 
+contour(x=beta1grid, y=beta2grid, z=gmat, nlevels=20, 
+        xlab=expression(beta[1]), ylab=expression(beta[2]))
+# Plot the x values
+points(x=x.values[,1], y=x.values[,2], cex=.5, type="b") 
+# Add a red X at the estimate from the built in R function glm
+points(x=poisreg$coefficients[1], poisreg$coefficients[2], 
+       pch=4, cex=2, col="red") 
+
+
+Gradient Ascent
+Newton’s method converges quickly but requires us to work with the inverse Hessian matrix at each iteration. Deriving analytical expressions for the entries the Hessian matrix can be tedious, and the matrix calculations necessary to implement the updating equation can become prohibitive for statistical models with a large number of parameters. There are a number of strategies to sidestep these issues. One involves approximating the Hessian matrix as in the secant method and its variations. We’ll talk about a different approach called gradient ascent or the method of steepest ascent. (If we are searching for a minimum point instead of a maximum point, then the method is called gradient descent or the method of steepest descent.)
+
+Recall the intuition that the gradient g′(x0)
+ points in the direction for which g(x)
+ increases most rapidly at the point x0.
+ If we view the function g(x)
+ as a topographical map of mountainous terrain, the gradient g′(x0)
+ gives the direction of the steepest uphill climb at point x0.
+ By taking a sufficiently small step in the direction of the gradient, we are guaranteed to move uphill. This is the basis for gradient ascent.
+
+Gradient ascent is an iterative optimization algorithm with the updating equation
+x(t+1)=x(t)+αtg′(x(t))
+where αt
+ is called the step size.
+
+A well chosen sequence of step sizes is critical to the performance of gradient ascent. We will consider two approaches:
+
+The first is to simply let αt=α
+ at each iteration where α
+ is chosen through experimentation to be sufficiently small to ensure an uphill climb and overall reasonable behavior.
+The second is called backtracking.
+Backtracking refers to the following adaptive process for choosing a step size to ensure an uphill climb. At each iteration, we first try to take a step of size α.
+ If g(x(t))≥g(x(t)+αg′(x(t))),
+ then we instead try to take a step of size α2.
+ If g(x(t))≥g(x(t)+α2g′(x(t))),
+ then we try to take a step of size α22.
+ We continue this process of halving the step size until the resulting step takes us uphill. The initial step size α
+ can be tuned through experimentation.
+
+The following R
+ code implements gradient ascent for the logistic regression example with αt=α
+ at each iteration:
+
+# Load and transform the data (this involves commands we haven't discussed). The data are available in the "imbalance"
+# package, which you will have to install using the command install.packages("imbalance"). The data are stored in a data frame called haberman that we can work with upon loading the package. 
+
+library(imbalance)
+n <- nrow(haberman)
+y <- (haberman$Class=="positive")*1
+ones <- rep(1, n)
+
+# Unlike when we used Newton's method for this example, we now center and scale the covariates using the scale function.
+# This seems to be necessary to find a step size alpha that works well. 
+haberman[, c("Age", "Year", "Positive")] <- 
+  scale(haberman[, c("Age", "Year", "Positive")])
+Z <- as.matrix(cbind(ones, haberman[, c("Age", "Year", "Positive")]))
+
+#########################################################################
+### GRADIENT ASCENT (LOGISTIC REGRESSION)
+#########################################################################
+
+#########################################################################
+# x = initial value of the regression coefficients
+# itr = number of iterations to run
+# x.values = contains values of x for each iteration
+# g = objective function
+# g.prime = first derivative of objective function
+#########################################################################
+
+#########################################################################
+
+## INITIAL VALUES
+x = c(0, 0, 0, 0)
+itr = 1500
+alpha = 5*1e-4
+x.values = matrix(0,itr+1,4)
+x.values[1,] = x
+g.values = rep(0, itr+1) # Create a vector to store the value of g at each x value
+
+## OBJECTIVE FUNCTION AND DERIVATIVES
+g = function(beta, y, Z){
+  n <- length(y) # Create a variable n = # of observations
+  ones <- rep(1, n) # Create a length n vector of ones
+  # Create the b vector 
+  b <- rep(0, n) # Initial b as a vector of zeros. 
+  for(i in 1:n){
+    b[i] <- log(1 + exp(Z[i,] %*% beta))
+  }
+  # Calculate and return the log likelihood 
+  return(y %*% Z %*% beta - b %*% ones)
+}
+
+g.values[1] = g(x, y, Z) # Fill in the value of g at our initial x 
+
+g.prime = function(beta, y, Z){
+  n <- length(y) # Create a variable n = # of observations
+  # Create the pi vector 
+  pi_vec <- rep(0, n) # Initial pi_vec as a vector of zeros. 
+  for(i in 1:n){
+    pi_vec[i] <- 1/(1 + exp(-Z[i,] %*% beta))
+  }
+  # Calculate and return the gradient of the log likelihood 
+  return(t(Z) %*% (y - pi_vec))
+}
+
+### MAIN
+for(i in 1:itr){
+  x = x + alpha*g.prime(x, y, Z)
+  x.values[i+1,] = x
+  g.values[i+1] = g(x, y, Z)
+}
+
+## OUTPUT
+x       # FINAL ESTIMATE
+##                 [,1]
+## ones     -1.07661735
+## Age       0.21498165
+## Year     -0.03179172
+## Positive  0.63587047
+g.prime(x, y, Z)    # GRADIENT AT ESTIMATE
+##                   [,1]
+## ones     -2.247091e-13
+## Age       2.078442e-13
+## Year     -1.028615e-13
+## Positive  2.608512e-13
+# x.values # THE SEQUENCE OF X VALUES
+
+# We can compare these estimates to what we get using the standard R function: 
+
+logreg <- glm(Class ~ Age + Year + Positive, family="binomial", data=haberman)
+logreg$coefficients 
+## (Intercept)         Age        Year    Positive 
+## -1.07661735  0.21498165 -0.03179172  0.63587047
+# Here, we compare the value of g, the log likelihood, at each iteration (black line) 
+# and compare that to the value of g evaluated at the MLE found by the built-in
+# R function glm. 
+
+plot(g.values, type="l", ylim=c(-170, -160))
+abline(h=g(logreg$coefficients, y, Z), col='red')
+
+
+The following R
+ code implements gradient ascent for the Poisson regression example with αt=α
+ at each iteration:
+
+oil_data <- read.csv("https://michaeljauch.github.io/STA4102Data/oilspills.csv", header=TRUE)
+y <- oil_data$spills
+Z <- as.matrix(oil_data[,c("importexport", "domestic")])
+
+#########################################################################
+### GRADIENT ASCENT (A POISSON REGRESSION MODEL)
+#########################################################################
+
+#########################################################################
+# x = initial value of the regression coefficients
+# itr = number of iterations to run
+# alpha = the step size
+# x.values = contains values of x for each iteration
+# g = objective function
+# g.prime = first derivative of objective function
+# g.2prime = second derivative of objective function
+#########################################################################
+
+#########################################################################
+
+## INITIAL VALUES
+x = c(.1,.1)
+itr = 1000
+alpha= 1e-2 # 1e-3 
+x.values = matrix(0,itr+1,2)
+x.values[1,] = x
+g.values = rep(0,itr+1)
+
+## THE LOG LIKELIHOOD AND ITS FIRST DERIVATIVE
+
+g <- function(beta, y, Z){
+  n <- length(y)
+  sum <- 0
+  for(i in 1:n){
+    sum <- sum + y[i]*log(beta[1]*Z[i,1] + beta[2]*Z[i,2]) - 
+      (beta[1]*Z[i,1] + beta[2]*Z[i,2]) - lfactorial(y[i])
+  }
+  return(sum)
+}
+g.values[1] <- g(x, y, Z)
+
+g.prime <- function(beta, y, Z){
+  n <- length(y)
+  top <- 0 
+  bottom <- 0
+  for(i in 1:n){
+    top <- top + y[i]*Z[i,1]/(Z[i,] %*% beta) - Z[i,1]
+    bottom <- bottom + y[i]*Z[i,2]/(Z[i,] %*% beta) - Z[i,2]
+  }
+  return(c(top, bottom))
+}
+
+## MAIN
+for(i in 1:itr){
+  x = x + alpha*g.prime(x, y, Z)
+  x.values[i+1,] = x
+  g.values[i+1] <- g(x, y, Z)
+}
+
+## OUTPUT
+x       # FINAL ESTIMATE
+## [1] 1.0971525 0.9375546
+g.prime(x, y, Z)    # GRADIENT AT ESTIMATE
+## [1] -6.859846e-12  1.074751e-11
+# Compare to the results from the R function glm
+poisreg <- glm(spills ~ -1 + importexport + domestic, 
+               family=poisson(link="identity"), data=oil_data, start=c(.1,1)) 
+poisreg$coefficients - x
+##  importexport      domestic 
+##  3.783088e-05 -5.733441e-05
+Let’s plot the path of x(0),x(1),x(2),...:
+
+# M^2 is the number of points at which we evaluate g to create the contour plot
+M <- 50
+
+# Create the grids where we will evaluate g to create the contour plot 
+beta1grid <- seq(.1, 3, length.out=M)
+beta2grid <- seq(.1, 3, length.out=M)
+
+# Evaluate g on our grid and store the values in a matrix 
+gmat <- matrix(0, nrow=M, ncol=M)
+for(i in 1:M){
+  for(j in 1:M){
+    gmat[i,j] <- g(c(beta1grid[i], beta2grid[j]), y, Z)
+  }
+}
+
+# Create the contour plot 
+contour(x=beta1grid, y=beta2grid, z=gmat, nlevels=20, 
+        xlab=expression(beta[1]), ylab=expression(beta[2]))
+# Plot the x values
+points(x=x.values[,1], y=x.values[,2], cex=.5, type="b") 
+# Add a red X at the estimate from the built in R function glm
+points(x=poisreg$coefficients[1], poisreg$coefficients[2], 
+       pch=4, cex=2, col="red")
+
+
+A few questions:
+
+What happens as we change α?
+
+Does the sequence g(x(0)),g(x(1)),g(x(2)),...
+ always increase?
+How importance does the choice of α
+ seem to be?
+The following R
+ code implements gradient ascent with backtracking:
+
+oil_data <- read.csv("https://michaeljauch.github.io/STA4102Data/oilspills.csv", header=TRUE)
+y <- oil_data$spills
+Z <- as.matrix(oil_data[,c("importexport", "domestic")])
+
+#########################################################################
+### GRADIENT ASCENT WITH BACKTRACKING (A POISSON REGRESSION MODEL)
+#########################################################################
+
+#########################################################################
+# x = initial value of the regression coefficients
+# itr = number of iterations to run
+# alpha = the step size
+# x.values = contains values of x for each iteration
+# g = objective function
+# g.prime = first derivative of objective function
+# g.2prime = second derivative of objective function
+#########################################################################
+
+#########################################################################
+
+## INITIAL VALUES
+x = c(.1,.1)
+itr = 20
+alpha= .1 #1e-2 # 1e-3 
+x.values = matrix(0,itr+1,2)
+x.values[1,] = x
+g.values = rep(0,itr+1)
+
+## THE LOG LIKELIHOOD AND ITS FIRST DERIVATIVE
+
+g <- function(beta, y, Z){
+  n <- length(y)
+  sum <- 0
+  for(i in 1:n){
+    sum <- sum + y[i]*log(beta[1]*Z[i,1] + beta[2]*Z[i,2]) - 
+      (beta[1]*Z[i,1] + beta[2]*Z[i,2]) - lfactorial(y[i])
+  }
+  return(sum)
+}
+g.values[1] <- g(x, y, Z)
+
+g.prime <- function(beta, y, Z){
+  n <- length(y)
+  top <- 0 
+  bottom <- 0
+  for(i in 1:n){
+    top <- top + y[i]*Z[i,1]/(Z[i,] %*% beta) - Z[i,1]
+    bottom <- bottom + y[i]*Z[i,2]/(Z[i,] %*% beta) - Z[i,2]
+  }
+  return(c(top, bottom))
+}
+
+## MAIN
+for(i in 1:itr){
+  # Choose initial temporary values for the step size and x at iteration i
+  alpha_tmp <- alpha
+  x_tmp <- x + alpha_tmp*g.prime(x, y, Z)
+  # The while loop will run the code within the curly brackets repeatedly until 
+  # the condition is no longer satisfied. 
+  while( g(x, y, Z) >= g(x_tmp, y, Z) || is.na(g(x_tmp, y, Z)) ){
+    alpha_tmp <- alpha_tmp/2
+    x_tmp <- x + alpha_tmp*g.prime(x, y, Z)
+  }
+  # Take the final temporary x value as the new x value 
+  x <- x_tmp
+  x.values[i+1,] <- x
+  g.values[i+1] <- g(x, y, Z) # Evaluate g at the new x value and store it
+}
+
+## OUTPUT
+x       # FINAL ESTIMATE
+## [1] 1.0990807 0.9360953
+g.prime(x, y, Z)    # GRADIENT AT ESTIMATE
+## [1] -0.018824375 -0.005544218
+# Compare to the results from the R function glm
+poisreg <- glm(spills ~ -1 + importexport + domestic, 
+               family=poisson(link="identity"), data=oil_data, start=c(.1,1)) 
+poisreg$coefficients - x
+## importexport     domestic 
+## -0.001890368  0.001401998
+Again, let’s plot the path of x(0),x(1),x(2),...:
+
+# M^2 is the number of points at which we evaluate g to create the contour plot
+M <- 50
+
+# Create the grids where we will evaluate g to create the contour plot 
+beta1grid <- seq(.1, 3, length.out=M)
+beta2grid <- seq(.1, 3, length.out=M)
+
+# Evaluate g on our grid and store the values in a matrix 
+gmat <- matrix(0, nrow=M, ncol=M)
+for(i in 1:M){
+  for(j in 1:M){
+    gmat[i,j] <- g(c(beta1grid[i], beta2grid[j]), y, Z)
+  }
+}
+
+# Create the contour plot 
+contour(x=beta1grid, y=beta2grid, z=gmat, nlevels=20, 
+        xlab=expression(beta[1]), ylab=expression(beta[2]))
+# Plot the x values
+points(x=x.values[,1], y=x.values[,2], cex=.5, type="b") 
+# Add a red X at the estimate from the built in R function glm
+points(x=poisreg$coefficients[1], poisreg$coefficients[2], 
+       pch=4, cex=2, col="red")
+
+
+Let’s consider the same questions:
+
+What happens as we change α?
+
+Does the sequence g(x(0)),g(x(1)),g(x(2)),...
+ always increase?
+How important does the choice of α
+ seem to be?
