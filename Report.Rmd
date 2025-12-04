@@ -1,7 +1,7 @@
 ---
 title: "Arsenic Levels and Distance to 'Safe' Well: Public Health Factors in Rural Bangladesh"
 subtitle: "STA 4102 / Computational Methods in Statistics 1"
-author: "Aiden Belmont, Sebastian Ruiz, Owen Peronto"
+author: "Aidan Belmont, Sebastian Ruiz, Owen Peronto"
 date: "2025-12-04"
 output: html_document
 ---
